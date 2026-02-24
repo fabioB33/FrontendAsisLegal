@@ -38,7 +38,7 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
       // Use avatar if available, otherwise fallback to direct call
       if (avatarRef?.current?.isReady && avatarRef?.current?.sendMessage) {
         console.log('🎬 Using LiveAvatar to speak');
-        avatarRef.current.sendMessage(message);
+        await avatarRef.current.sendMessage(message);
         setMessage(''); // Clear input
         setResponse(null); // Avatar responds via audio/video
         setIsProcessing(false);

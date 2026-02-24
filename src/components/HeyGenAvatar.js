@@ -402,7 +402,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     }
   }, [playAudio]);
 
-  useImperativeHandle(ref, () => ({ isReady: isConnected, sendMessage }));
+  useImperativeHandle(ref, () => ({ isReady: isConnected, sendMessage, stop: handleStop }));
 
   // ── Render ──
   return (
