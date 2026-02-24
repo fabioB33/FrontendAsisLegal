@@ -429,7 +429,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         {/* Imagen estática — visible siempre que no haya video en vivo */}
         {!videoReady && (
           <img
-            src="/avatar-dra-prados.png"
+            src="/Dra.PradosdeParaiso.png"
             alt="Valeria"
             className="absolute inset-0 w-full h-full rounded-2xl object-cover shadow-2xl"
           />
