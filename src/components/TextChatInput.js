@@ -46,7 +46,7 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
       } else {
         // Fallback: Use direct API call with audio
         console.log('⚠️ Avatar not ready, using fallback with audio');
-        const apiUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+        const apiUrl = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal.onrender.com';
         const res = await fetch(`${apiUrl}/api/chat`, {
           method: 'POST',
           headers: {
