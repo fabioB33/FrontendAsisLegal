@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 
-const BACKEND = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal.onrender.com';
+const BACKEND = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 const HeyGenAvatar = forwardRef((_props, ref) => {
   const [isConnected, setIsConnected]       = useState(false);
@@ -201,12 +201,18 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   // ── Play TTS audio locally ──
   const playAudio = useCallback((audioUrl) => {
     if (!audioUrl) return;
-    // Stop any currently playing audio
+    // Stop any currently playing audio and clean up listeners to prevent leaks
     if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current.src = '';
+      const prev = audioPlayerRef.current;
+      prev.onended = null;
+      prev.onerror = null;
+      prev.pause();
+      prev.src = '';
       audioPlayerRef.current = null;
     }
+    // Clear any previous safety timeout before setting a new one
+    if (audioTimeoutRef.current) { clearTimeout(audioTimeoutRef.current); audioTimeoutRef.current = null; }
+
     const audio = new Audio(audioUrl);
     audioPlayerRef.current = audio;
 
@@ -214,6 +220,9 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     const finish = () => {
       if (finished) return; // evita llamadas dobles
       finished = true;
+      // Remove listeners before clearing ref to avoid leaks
+      audio.onended = null;
+      audio.onerror = null;
       if (audioTimeoutRef.current) { clearTimeout(audioTimeoutRef.current); audioTimeoutRef.current = null; }
       if (!mountedRef.current) return; // componente desmontado: no actualizar estado
       setAvatarSpeaking(false);
@@ -305,13 +314,21 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     const mr = mediaRecorderRef.current;
     mediaRecorderRef.current = null;
 
-    // Esperar que el recorder termine
-    await new Promise((resolve) => {
-      mr.onstop = resolve;
-      mr.stop();
-      // Detener tracks del stream
-      mr.stream?.getTracks().forEach(t => t.stop());
-    });
+    // Esperar que el recorder termine — con timeout de 3s para evitar promise infinita
+    await Promise.race([
+      new Promise((resolve) => {
+        mr.onstop = resolve;
+        try {
+          mr.stop();
+        } catch (e) {
+          console.warn('MediaRecorder stop error:', e);
+          resolve();
+        }
+      }),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+    // Detener tracks del stream (siempre, independientemente del recorder)
+    try { mr.stream?.getTracks().forEach(t => t.stop()); } catch {};
 
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
     if (audioBlob.size < 500) {

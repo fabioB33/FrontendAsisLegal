@@ -94,14 +94,18 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
         if (audioRes.ok) {
           const audioData = await audioRes.json();
           if (audioData.audio) {
-            // Convert base64 to audio URL
+            // Convert base64 to blob URL — revoke previous one first
             const audioBlob = await fetch(`data:audio/mp3;base64,${audioData.audio}`).then(r => r.blob());
-            if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+            if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
             const audioUrl = URL.createObjectURL(audioBlob);
             blobUrlRef.current = audioUrl;
+            // Play audio — revoke only after playback completes
             await playAudioResponse(audioUrl);
-            URL.revokeObjectURL(audioUrl);
-            blobUrlRef.current = null;
+            // Revoke only if still the same URL (not replaced by a concurrent call)
+            if (blobUrlRef.current === audioUrl) {
+              URL.revokeObjectURL(audioUrl);
+              blobUrlRef.current = null;
+            }
           }
         }
         
