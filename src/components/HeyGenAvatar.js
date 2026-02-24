@@ -88,9 +88,9 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             track.attach(videoRef.current);
             console.log('📹 Avatar video attached');
           } else if (track.kind === Track.Kind.Audio) {
+            // Audio de LiveKit silenciado — usamos MP3 local para evitar eco
             audioTrackRef.current = track;
-            track.attach();
-            console.log('🔊 Avatar audio attached');
+            console.log('🔊 Avatar audio attached (muted — using local MP3)');
           }
         });
 
@@ -131,8 +131,8 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             if (pub.track.kind === Track.Kind.Video && videoRef.current) {
               pub.track.attach(videoRef.current);
             } else if (pub.track.kind === Track.Kind.Audio) {
+              // Audio silenciado — usamos MP3 local para evitar eco
               audioTrackRef.current = pub.track;
-              pub.track.attach();
             }
           });
         });
