@@ -24,13 +24,14 @@ const BACKEND = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal.o
 
 const HeyGenAvatar = forwardRef((_props, ref) => {
   const [isConnected, setIsConnected]       = useState(false);
-  const [isTalking, setIsTalking]           = useState(false);   // usuario grabando
-  const [avatarSpeaking, setAvatarSpeaking] = useState(false);  // avatar hablando
+  const [isTalking, setIsTalking]           = useState(false);
+  const [avatarSpeaking, setAvatarSpeaking] = useState(false);
   const [isPaused, setIsPaused]             = useState(false);
   const [audioBlocked, setAudioBlocked]     = useState(false);
-  const [isProcessing, setIsProcessing]     = useState(false);  // backend procesando
+  const [isProcessing, setIsProcessing]     = useState(false);
   const [error, setError]                   = useState(null);
   const [status, setStatus]                 = useState('Iniciando avatar...');
+  const [videoReady, setVideoReady]         = useState(false);  // true cuando LiveKit envía video
   const [messages, setMessages]             = useState([]);
 
   const videoRef       = useRef(null);
@@ -85,6 +86,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
           room.on(RoomEvent.TrackSubscribed, (track) => {
             if (track.kind === Track.Kind.Video && videoRef.current) {
               track.attach(videoRef.current);
+              setVideoReady(true);
               console.log('📹 Avatar video attached');
             } else if (track.kind === Track.Kind.Audio) {
               audioTrackRef.current = track;
@@ -401,34 +403,39 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   return (
     <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto">
 
-      {/* Avatar video */}
+      {/* Avatar video / imagen fallback */}
       <div className="relative w-[300px] h-[300px] sm:w-[380px] sm:h-[380px] md:w-[420px] md:h-[420px]">
-        {!isConnected && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl z-10">
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
-              <p className="text-sm text-gray-600 font-medium">{status}</p>
+
+        {/* Imagen estática — visible siempre que no haya video en vivo */}
+        {!videoReady && (
+          <img
+            src="/avatar-dra-prados.png"
+            alt="Valeria"
+            className="absolute inset-0 w-full h-full rounded-2xl object-cover shadow-2xl"
+          />
+        )}
+
+        {/* Spinner de carga encima de la imagen — solo mientras conecta */}
+        {!isConnected && (
+          <div className="absolute inset-0 flex items-end justify-center pb-6 z-10">
+            <div className="flex items-center gap-2 bg-black/50 text-white text-xs px-3 py-1.5 rounded-full">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>{status}</span>
             </div>
           </div>
         )}
-        {error && isConnected && (
-          <div className="absolute bottom-2 left-2 right-2 bg-red-600/90 text-white text-xs rounded-xl px-3 py-2 z-10 text-center">
-            {error}
+
+        {/* Error inline — pequeño, no bloquea */}
+        {error && (
+          <div className="absolute bottom-2 left-2 right-2 bg-black/70 text-white text-xs rounded-xl px-3 py-2 z-10 text-center flex items-center gap-2 justify-center">
+            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
-        {error && !isConnected && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50 rounded-2xl z-10 border-2 border-red-200 p-6">
-            <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
-            <p className="text-red-600 font-semibold mb-3 text-lg">Error de Conexión</p>
-            <p className="text-sm text-red-700 mb-4 leading-relaxed text-center">{error}</p>
-            <button onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium">
-              Recargar
-            </button>
-          </div>
-        )}
+
+        {/* Video en vivo de LiveKit — aparece encima cuando llega */}
         <video ref={videoRef} autoPlay playsInline
-          className={`w-full h-full rounded-2xl object-cover shadow-2xl transition-opacity duration-300 ${isConnected ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full h-full rounded-2xl object-cover shadow-2xl transition-opacity duration-500 ${videoReady ? 'opacity-100' : 'opacity-0'}`}
         />
       </div>
 
