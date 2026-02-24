@@ -416,30 +416,49 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         <p className="text-sm text-gray-500 mt-0.5">Prados de Paraíso</p>
       </div>
 
-      {/* Audio bloqueado */}
-      {isConnected && audioBlocked && (
-        <button onClick={handleUnblockAudio}
-          className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-semibold shadow-lg animate-pulse">
-          <VolumeX className="w-5 h-5" />
-          Tocá aquí para activar el audio
-        </button>
-      )}
-
-      {/* Procesando */}
-      {isConnected && isProcessing && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full border border-blue-200">
-          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-          <p className="text-sm font-medium text-blue-700">Valeria está pensando...</p>
+      {/* PASO 1: Conectando */}
+      {!isConnected && !error && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full border border-gray-200">
+          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+          <p className="text-sm text-gray-500">{status}</p>
         </div>
       )}
 
-      {/* Avatar hablando: controles Pausa + Detener */}
+      {/* PASO 1: Audio bloqueado — primer paso obligatorio */}
+      {isConnected && audioBlocked && (
+        <div className="flex flex-col items-center gap-3 w-full">
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl px-6 py-4 text-center">
+            <p className="text-amber-800 font-semibold text-base mb-1">Paso 1 de 2</p>
+            <p className="text-amber-700 text-sm">Tocá el botón para activar el micrófono</p>
+          </div>
+          <button
+            onClick={handleUnblockAudio}
+            className="flex items-center gap-3 px-8 py-4 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-full font-bold text-lg shadow-xl transition-all animate-pulse"
+          >
+            <VolumeX className="w-6 h-6" />
+            Tocar para comenzar
+          </button>
+        </div>
+      )}
+
+      {/* PASO 2: Procesando — Valeria pensando */}
+      {isConnected && !audioBlocked && isProcessing && (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2 px-5 py-3 bg-blue-50 rounded-full border border-blue-200">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+            <p className="text-sm font-semibold text-blue-700">Valeria está pensando...</p>
+          </div>
+          <p className="text-xs text-gray-400">Por favor esperá la respuesta</p>
+        </div>
+      )}
+
+      {/* PASO 2: Avatar hablando */}
       {isConnected && !audioBlocked && !isProcessing && avatarSpeaking && (
         <div className="flex flex-col items-center gap-3 w-full">
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-200">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <p className="text-sm font-medium text-emerald-700">
-              {isPaused ? '⏸ En pausa' : '🔊 Valeria está respondiendo...'}
+          <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50 rounded-full border border-emerald-200">
+            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            <p className="text-sm font-semibold text-emerald-700">
+              {isPaused ? 'Respuesta en pausa' : 'Valeria está respondiendo...'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -459,9 +478,17 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         </div>
       )}
 
-      {/* PTT — solo cuando avatar NO está hablando ni procesando */}
+      {/* PASO 2: PTT habilitado — solo aparece cuando audio activo y avatar libre */}
       {isConnected && !audioBlocked && !avatarSpeaking && !isProcessing && (
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-3 w-full">
+          {!isTalking && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-2 text-center">
+              <p className="text-emerald-700 text-sm font-medium">
+                Mantené presionado el botón mientras hablás
+              </p>
+              <p className="text-emerald-600 text-xs mt-0.5">Soltá cuando termines tu pregunta</p>
+            </div>
+          )}
           <button
             onMouseDown={startTalking}
             onMouseUp={stopTalking}
@@ -469,17 +496,19 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             onTouchStart={startTalking}
             onTouchEnd={stopTalking}
             className={`
-              flex items-center gap-3 px-8 py-4 rounded-full font-semibold text-white
-              shadow-xl transition-all duration-150 select-none
+              flex items-center gap-3 px-10 py-5 rounded-full font-bold text-white text-lg
+              shadow-xl transition-all duration-150 select-none touch-none
               ${isTalking
                 ? 'bg-red-500 scale-95 shadow-red-400/60 ring-4 ring-red-300'
                 : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-emerald-500/50'}
             `}
           >
-            <Mic className={`w-5 h-5 ${isTalking ? 'animate-pulse' : ''}`} />
-            {isTalking ? 'Soltá para terminar' : 'Mantené presionado para hablar'}
+            <Mic className={`w-6 h-6 ${isTalking ? 'animate-pulse' : ''}`} />
+            {isTalking ? 'Soltá para enviar' : 'Presionar para hablar'}
           </button>
-          <p className="text-xs text-gray-400">{isTalking ? '🔴 Grabando...' : 'Push-to-Talk Mode'}</p>
+          {isTalking && (
+            <p className="text-sm font-semibold text-red-500 animate-pulse">Grabando... soltá cuando termines</p>
+          )}
         </div>
       )}
 
