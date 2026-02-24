@@ -166,8 +166,17 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
 
   // ── Desbloquear audio ──
   const handleUnblockAudio = useCallback(async () => {
-    if (!roomRef.current) return;
-    try { await roomRef.current.startAudio(); } catch {}
+    // Intentar desbloquear LiveKit si está disponible
+    if (roomRef.current) {
+      try { await roomRef.current.startAudio(); } catch {}
+    }
+    // Forzar desbloqueo con un Audio silencioso (garantiza que el browser permita audio)
+    try {
+      const silence = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      await silence.play();
+    } catch {}
+    // Siempre desbloquear la UI independientemente del resultado de LiveKit
+    setAudioBlocked(false);
   }, []);
 
   // ── Pausa / Reanuda audio local ──
@@ -191,22 +200,37 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
       audioPlayerRef.current.src = '';
+      audioPlayerRef.current = null;
     }
     const audio = new Audio(audioUrl);
     audioPlayerRef.current = audio;
-    audio.onended = () => {
+
+    const finish = () => {
       setAvatarSpeaking(false);
       setIsPaused(false);
+      audioPlayerRef.current = null;
     };
+
+    audio.onended = finish;
     audio.onerror = (e) => {
       console.error('Audio playback error:', e);
-      setAvatarSpeaking(false);
+      finish();
     };
+
+    setAvatarSpeaking(true);
+
     audio.play().catch(err => {
       console.warn('Audio play blocked by browser:', err.message);
-      setAvatarSpeaking(false);
+      finish();
     });
-    setAvatarSpeaking(true);
+
+    // Timeout de seguridad: si el audio no termina en 60s, liberar el botón
+    setTimeout(() => {
+      if (audioPlayerRef.current === audio) {
+        console.warn('Audio timeout — releasing PTT button');
+        finish();
+      }
+    }, 60000);
   }, []);
 
   // ── Detener avatar ──
@@ -293,6 +317,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     setIsProcessing(true);
     setStatus('Procesando...');
 
+    setError(null); // Limpiar errores anteriores antes de cada intento
     try {
       const resp = await fetch(`${BACKEND}/api/liveavatar/speak`, {
         method: 'POST',
@@ -330,7 +355,9 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
 
     } catch (err) {
       console.error('Speak error:', err);
-      setError(`Error al procesar: ${err.message}`);
+      setError(`Error: ${err.message}`);
+      // Auto-limpiar error después de 4 segundos para no bloquear la UI
+      setTimeout(() => setError(null), 4000);
     } finally {
       setIsProcessing(false);
       setStatus('Listo');
@@ -394,7 +421,12 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             </div>
           </div>
         )}
-        {error && (
+        {error && isConnected && (
+          <div className="absolute bottom-2 left-2 right-2 bg-red-600/90 text-white text-xs rounded-xl px-3 py-2 z-10 text-center">
+            {error}
+          </div>
+        )}
+        {error && !isConnected && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50 rounded-2xl z-10 border-2 border-red-200 p-6">
             <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
             <p className="text-red-600 font-semibold mb-3 text-lg">Error de Conexión</p>
