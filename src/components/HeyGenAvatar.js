@@ -55,9 +55,10 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     initCalledRef.current = true;
 
     const connect = async () => {
-      try {
-        setStatus('Creando sesión...');
+      setStatus('Creando sesión...');
 
+      // Intentar crear sesión con LiveKit — si falla, igual habilitamos la UI con solo audio
+      try {
         const resp = await fetch(`${BACKEND}/api/liveavatar/create-session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -75,81 +76,70 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         const { session_id, livekit_url, livekit_token } = result.session;
         sessionIdRef.current = session_id;
 
-        if (!livekit_url || !livekit_token) throw new Error('No se recibieron credenciales LiveKit');
+        if (livekit_url && livekit_token) {
+          setStatus('Conectando video...');
 
-        setStatus('Conectando video...');
+          const room = new Room({ adaptiveStream: true, dynacast: true });
+          roomRef.current = room;
 
-        const room = new Room({ adaptiveStream: true, dynacast: true, audioCaptureDefaults: { echoCancellation: true } });
-        roomRef.current = room;
-
-        // Video del avatar
-        room.on(RoomEvent.TrackSubscribed, (track) => {
-          if (track.kind === Track.Kind.Video && videoRef.current) {
-            track.attach(videoRef.current);
-            console.log('📹 Avatar video attached');
-          } else if (track.kind === Track.Kind.Audio) {
-            // Adjuntamos a elemento oculto y lo muteamos — evita eco con MP3 local
-            audioTrackRef.current = track;
-            const el = track.attach();
-            el.muted = true;
-            el.volume = 0;
-            console.log('🔇 Avatar audio muted (using local MP3 instead)');
-          }
-        });
-
-        room.on(RoomEvent.TrackUnsubscribed, (track) => {
-          if (track.kind === Track.Kind.Audio) audioTrackRef.current = null;
-        });
-
-        room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
-          setAudioBlocked(!room.canPlaybackAudio);
-        });
-
-        room.on(RoomEvent.Disconnected, (reason) => {
-          console.warn('LiveKit disconnected:', reason);
-          setAvatarSpeaking(false);
-          // Don't show error on disconnect — attempt is enough to show video
-        });
-
-        room.on(RoomEvent.ConnectionStateChanged, (state) => {
-          console.log('LiveKit state:', state);
-        });
-
-        // En LITE mode el backend controla lip-sync vía WS propio.
-        // LiveKit solo trae el video del avatar — no hay data channel de control.
-        try {
-          await room.connect(livekit_url, livekit_token, {
-            autoSubscribe: true,
-          });
-          console.log('✅ LiveKit connected (LITE mode)');
-        } catch (connErr) {
-          // CORS error on localhost is expected with LiveKit cloud — still show UI
-          console.warn('LiveKit connect warning (may be CORS on localhost):', connErr?.message || connErr);
-        }
-
-        // Attach tracks ya presentes
-        room.remoteParticipants.forEach(p => {
-          p.trackPublications.forEach(pub => {
-            if (!pub.track) return;
-            if (pub.track.kind === Track.Kind.Video && videoRef.current) {
-              pub.track.attach(videoRef.current);
-            } else if (pub.track.kind === Track.Kind.Audio) {
-              audioTrackRef.current = pub.track;
-              const el = pub.track.attach();
+          room.on(RoomEvent.TrackSubscribed, (track) => {
+            if (track.kind === Track.Kind.Video && videoRef.current) {
+              track.attach(videoRef.current);
+              console.log('📹 Avatar video attached');
+            } else if (track.kind === Track.Kind.Audio) {
+              audioTrackRef.current = track;
+              const el = track.attach();
               el.muted = true;
               el.volume = 0;
+              console.log('🔇 Avatar audio muted (using local MP3 instead)');
             }
           });
-        });
 
-        setIsConnected(true);
-        setAudioBlocked(!room.canPlaybackAudio);
-        setStatus('Listo');
+          room.on(RoomEvent.TrackUnsubscribed, (track) => {
+            if (track.kind === Track.Kind.Audio) audioTrackRef.current = null;
+          });
+
+          room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+            setAudioBlocked(!room.canPlaybackAudio);
+          });
+
+          room.on(RoomEvent.Disconnected, () => {
+            setAvatarSpeaking(false);
+          });
+
+          try {
+            await room.connect(livekit_url, livekit_token, { autoSubscribe: true });
+            console.log('✅ LiveKit connected (LITE mode)');
+          } catch (connErr) {
+            console.warn('LiveKit connect warning:', connErr?.message || connErr);
+          }
+
+          room.remoteParticipants.forEach(p => {
+            p.trackPublications.forEach(pub => {
+              if (!pub.track) return;
+              if (pub.track.kind === Track.Kind.Video && videoRef.current) {
+                pub.track.attach(videoRef.current);
+              } else if (pub.track.kind === Track.Kind.Audio) {
+                audioTrackRef.current = pub.track;
+                const el = pub.track.attach();
+                el.muted = true;
+                el.volume = 0;
+              }
+            });
+          });
+
+          setAudioBlocked(!room.canPlaybackAudio);
+        }
 
       } catch (err) {
-        console.error('❌ Connection error:', err);
-        setError(err.message || 'Error al conectar con el avatar');
+        // Si falla la sesión de LiveKit, igual habilitamos la UI para responder con audio
+        console.warn('⚠️ LiveKit session failed, continuing in audio-only mode:', err.message);
+        sessionIdRef.current = 'fallback-' + Date.now();
       }
+
+      // Siempre conectar la UI — el audio funciona aunque LiveKit falle
+      setIsConnected(true);
+      setStatus('Listo');
     };
 
     connect();
