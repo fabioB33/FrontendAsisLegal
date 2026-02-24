@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveAvatar Session</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #status {
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        #avatar-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        #error-msg {
+            display: none;
+            color: #f87171;
+            font-family: -apple-system, sans-serif;
+            font-size: 13px;
+            text-align: center;
+            padding: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p id="status">Iniciando avatar...</p>
+    </div>
+    <iframe
+        id="avatar-iframe"
+        allow="microphone; camera; autoplay"
+        allowfullscreen
+    ></iframe>
+    <div id="error-msg"></div>
+
+    <script>
+        const loadingEl  = document.getElementById('loading');
+        const statusEl   = document.getElementById('status');
+        const iframeEl   = document.getElementById('avatar-iframe');
+        const errorEl    = document.getElementById('error-msg');
+
+        let isInitialized = false;
+        let readyInterval  = null;
+
+        // ── Handshake con el padre ──────────────────────────────────────────
+        function startReadyHandshake() {
+            readyInterval = setInterval(() => {
+                if (!isInitialized) sendToParent('iframe-ready', true);
+            }, 500);
+        }
+
+        function stopReadyHandshake() {
+            if (readyInterval) { clearInterval(readyInterval); readyInterval = null; }
+        }
+
+        function updateStatus(msg) {
+            statusEl.textContent = msg;
+            console.log('📱', msg);
+        }
+
+        function sendToParent(type, data) {
+            window.parent.postMessage({ source: 'liveavatar-iframe', type, data }, '*');
+        }
+
+        function showError(msg) {
+            loadingEl.style.display = 'none';
+            errorEl.style.display   = 'block';
+            errorEl.textContent      = '⚠️ ' + msg;
+            sendToParent('error', msg);
+        }
+
+        // ── Inicializar iframe de LiveAvatar ────────────────────────────────
+        async function initAvatar(backendUrl) {
+            try {
+                stopReadyHandshake();
+                isInitialized = true;
+                sendToParent('session-received', true);
+
+                updateStatus('Creando sesión...');
+
+                const resp = await fetch(`${backendUrl}/api/liveavatar/create-session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ include_context: true })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${resp.status}`);
+                }
+
+                const result = await resp.json();
+                if (!result.success) throw new Error(result.message || 'Failed to create session');
+
+                const { embed_url, session_token, session_id } = result.session;
+                console.log('✅ Session created:', session_id);
+                sendToParent('session-created', { session_id });
+
+                // Cargar el iframe de LiveAvatar con el token de sesión
+                updateStatus('Cargando avatar...');
+                const src = `${embed_url}?token=${encodeURIComponent(session_token)}`;
+                console.log('🖼️ Loading LiveAvatar embed:', embed_url);
+
+                iframeEl.onload = () => {
+                    loadingEl.style.display = 'none';
+                    iframeEl.style.display  = 'block';
+                    updateStatus('Avatar listo');
+                    sendToParent('video-ready', true);
+                    sendToParent('ready', true);
+                    console.log('✅ LiveAvatar iframe loaded');
+                };
+
+                iframeEl.onerror = () => showError('No se pudo cargar el avatar');
+                iframeEl.src = src;
+
+            } catch (err) {
+                console.error('❌', err);
+                showError(err.message);
+            }
+        }
+
+        // ── Mensajes del padre ──────────────────────────────────────────────
+        window.addEventListener('message', async (event) => {
+            const msg = event.data;
+            if (msg.source !== 'liveavatar-parent') return;
+            console.log('📨 From parent:', msg.type);
+
+            switch (msg.type) {
+                case 'fetch-session':
+                    await initAvatar(msg.data.backend_url);
+                    break;
+                case 'disconnect':
+                    iframeEl.src = '';
+                    updateStatus('Desconectado');
+                    sendToParent('disconnected', true);
+                    break;
+            }
+        });
+
+        // Arrancar
+        startReadyHandshake();
+        updateStatus('Esperando sesión...');
+        console.log('🎬 LiveAvatar IFrame (liveavatar.com) initialized');
+    </script>
+</body>
+</html>
