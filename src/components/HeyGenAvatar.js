@@ -34,13 +34,16 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   const [videoReady, setVideoReady]         = useState(false);  // true cuando LiveKit envía video
   const [messages, setMessages]             = useState([]);
 
-  const videoRef       = useRef(null);
-  const audioTrackRef  = useRef(null);
-  const audioPlayerRef = useRef(null);   // <audio> element for local TTS playback
-  const roomRef        = useRef(null);
-  const sessionIdRef   = useRef(null);
-  const initCalledRef  = useRef(false);
-  const messagesEndRef = useRef(null);
+  const videoRef         = useRef(null);
+  const audioTrackRef    = useRef(null);
+  const audioPlayerRef   = useRef(null);   // <audio> element for local TTS playback
+  const roomRef          = useRef(null);
+  const sessionIdRef     = useRef(null);
+  const initCalledRef    = useRef(false);
+  const messagesEndRef   = useRef(null);
+  const mountedRef       = useRef(true);   // para evitar setState en componente desmontado
+  const audioTimeoutRef  = useRef(null);   // para limpiar el timeout de seguridad del audio
+  const lkAudioElRef     = useRef(null);   // elemento <audio> de LiveKit (para cleanup)
 
   // MediaRecorder para PTT
   const mediaRecorderRef = useRef(null);
@@ -93,6 +96,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
               const el = track.attach();
               el.muted = true;
               el.volume = 0;
+              lkAudioElRef.current = el;
               console.log('🔇 Avatar audio muted (using local MP3 instead)');
             }
           });
@@ -121,11 +125,13 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
               if (!pub.track) return;
               if (pub.track.kind === Track.Kind.Video && videoRef.current) {
                 pub.track.attach(videoRef.current);
+                setVideoReady(true);
               } else if (pub.track.kind === Track.Kind.Audio) {
                 audioTrackRef.current = pub.track;
                 const el = pub.track.attach();
                 el.muted = true;
                 el.volume = 0;
+                lkAudioElRef.current = el;
               }
             });
           });
@@ -147,6 +153,13 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     connect();
 
     return () => {
+      mountedRef.current = false;
+      if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+      if (lkAudioElRef.current) {
+        lkAudioElRef.current.pause();
+        lkAudioElRef.current.src = '';
+        lkAudioElRef.current = null;
+      }
       if (roomRef.current) roomRef.current.disconnect();
       if (sessionIdRef.current) {
         fetch(`${BACKEND}/api/liveavatar/close-session/${sessionIdRef.current}`, {
@@ -201,6 +214,8 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     const finish = () => {
       if (finished) return; // evita llamadas dobles
       finished = true;
+      if (audioTimeoutRef.current) { clearTimeout(audioTimeoutRef.current); audioTimeoutRef.current = null; }
+      if (!mountedRef.current) return; // componente desmontado: no actualizar estado
       setAvatarSpeaking(false);
       setIsPaused(false);
       if (audioPlayerRef.current === audio) audioPlayerRef.current = null;
@@ -220,7 +235,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     });
 
     // Timeout de seguridad: si el audio no termina en 60s, liberar el botón
-    setTimeout(() => {
+    audioTimeoutRef.current = setTimeout(() => {
       if (!finished) {
         console.warn('Audio timeout — releasing PTT button');
         finish();
@@ -354,7 +369,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
       console.error('Speak error:', err);
       setError(`Error: ${err.message}`);
       // Auto-limpiar error después de 4 segundos para no bloquear la UI
-      setTimeout(() => setError(null), 4000);
+      setTimeout(() => { if (mountedRef.current) setError(null); }, 4000);
     } finally {
       setIsProcessing(false);
       setStatus('Listo');

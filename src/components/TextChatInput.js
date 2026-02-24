@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Volume2, Pause, Play, Square } from 'lucide-react';
 
 const TextChatInput = ({ onStateChange, avatarRef }) => {
@@ -8,8 +8,18 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [error, setError] = useState(null);
   const [response, setResponse] = useState(null);
-  
-  const audioElementRef = React.useRef(null);
+
+  const audioElementRef = useRef(null);
+  const mountedRef = useRef(true);
+  const blobUrlRef = useRef(null); // para revocar blob URLs al terminar
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+      if (audioElementRef.current) { audioElementRef.current.pause(); audioElementRef.current = null; }
+    };
+  }, []);
 
   // Notify parent component of state changes
   React.useEffect(() => {
@@ -86,8 +96,12 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
           if (audioData.audio) {
             // Convert base64 to audio URL
             const audioBlob = await fetch(`data:audio/mp3;base64,${audioData.audio}`).then(r => r.blob());
+            if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
             const audioUrl = URL.createObjectURL(audioBlob);
+            blobUrlRef.current = audioUrl;
             await playAudioResponse(audioUrl);
+            URL.revokeObjectURL(audioUrl);
+            blobUrlRef.current = null;
           }
         }
         
@@ -110,12 +124,14 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
       
       audioElementRef.current = new Audio(audioUrl);
       audioElementRef.current.onended = () => {
+        if (!mountedRef.current) return;
         setIsPlaying(false);
         setIsPaused(false);
         audioElementRef.current = null;
       };
-      
+
       audioElementRef.current.onerror = () => {
+        if (!mountedRef.current) return;
         setError('Error al reproducir audio');
         setIsPlaying(false);
         setIsPaused(false);
