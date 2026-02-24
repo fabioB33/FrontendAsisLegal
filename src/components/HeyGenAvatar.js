@@ -197,10 +197,13 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     const audio = new Audio(audioUrl);
     audioPlayerRef.current = audio;
 
+    let finished = false;
     const finish = () => {
+      if (finished) return; // evita llamadas dobles
+      finished = true;
       setAvatarSpeaking(false);
       setIsPaused(false);
-      audioPlayerRef.current = null;
+      if (audioPlayerRef.current === audio) audioPlayerRef.current = null;
     };
 
     audio.onended = finish;
@@ -218,7 +221,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
 
     // Timeout de seguridad: si el audio no termina en 60s, liberar el botón
     setTimeout(() => {
-      if (audioPlayerRef.current === audio) {
+      if (!finished) {
         console.warn('Audio timeout — releasing PTT button');
         finish();
       }
@@ -231,6 +234,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
       audioPlayerRef.current.src = '';
+      audioPlayerRef.current = null;
     }
     if (!sessionIdRef.current) { setAvatarSpeaking(false); setIsPaused(false); return; }
     try {
@@ -297,7 +301,8 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
     if (audioBlob.size < 500) {
       console.warn('Audio muy corto, ignorado');
-      return;
+      setStatus('Listo');
+      return; // isProcessing aún no se puso en true, no necesita reset
     }
 
     // Convertir a base64
