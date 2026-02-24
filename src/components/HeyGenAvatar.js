@@ -79,7 +79,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
 
         setStatus('Conectando video...');
 
-        const room = new Room({ adaptiveStream: true, dynacast: true });
+        const room = new Room({ adaptiveStream: true, dynacast: true, audioCaptureDefaults: { echoCancellation: true } });
         roomRef.current = room;
 
         // Video del avatar
@@ -88,9 +88,12 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             track.attach(videoRef.current);
             console.log('📹 Avatar video attached');
           } else if (track.kind === Track.Kind.Audio) {
-            // Audio de LiveKit silenciado — usamos MP3 local para evitar eco
+            // Adjuntamos a elemento oculto y lo muteamos — evita eco con MP3 local
             audioTrackRef.current = track;
-            console.log('🔊 Avatar audio attached (muted — using local MP3)');
+            const el = track.attach();
+            el.muted = true;
+            el.volume = 0;
+            console.log('🔇 Avatar audio muted (using local MP3 instead)');
           }
         });
 
@@ -131,8 +134,10 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             if (pub.track.kind === Track.Kind.Video && videoRef.current) {
               pub.track.attach(videoRef.current);
             } else if (pub.track.kind === Track.Kind.Audio) {
-              // Audio silenciado — usamos MP3 local para evitar eco
               audioTrackRef.current = pub.track;
+              const el = pub.track.attach();
+              el.muted = true;
+              el.volume = 0;
             }
           });
         });
