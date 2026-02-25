@@ -21,34 +21,10 @@
     -->
         <title>Emergent | Fullstack App</title>
         
-        <!-- ElevenLabs Widget Script - Solo carga si hay acceso -->
-        <script>
-            // Verificar acceso antes de cargar widget
-            window.addEventListener('DOMContentLoaded', function() {
-                const hasAccess = localStorage.getItem('prados_access') === 'true';
-                
-                if (hasAccess) {
-                    // Cargar script de ElevenLabs
-                    const script = document.createElement('script');
-                    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed@beta';
-                    script.async = true;
-                    script.type = 'text/javascript';
-                    
-                    script.onload = function() {
-                        // Crear elemento del widget
-                        const widget = document.createElement('elevenlabs-convai');
-                        widget.setAttribute('agent-id', 'agent_0501kbssqc9yecrszw9egnyr29xx');
-                        document.body.appendChild(widget);
-                        console.log('✅ ElevenLabs widget loaded');
-                    };
-                    
-                    document.head.appendChild(script);
-                }
-            });
-        </script>
-        
-        <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
-        <!-- rrweb scripts removed: they intercepted fetch Response bodies breaking audio API -->
+        <!-- ElevenLabs widget removed: convai-widget-embed intercepts fetch Response bodies,
+             corrupting audio API calls ("body stream already read" error).
+             TTS is handled server-side via the backend. -->
+        <!-- emergent-main.js removed: contained rrweb which also intercepted fetch responses -->
         <!--
         These two scripts have been added for the Visual Edits, please do not edit or remove them
         -->
