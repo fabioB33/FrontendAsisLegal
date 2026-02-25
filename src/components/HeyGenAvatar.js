@@ -275,8 +275,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   }, []);
 
   // ── PTT: start recording ──
-  const startTalking = useCallback(async (e) => {
-    if (e?.preventDefault) e.preventDefault();
+  const startTalking = useCallback(async () => {
     if (!isConnected || isProcessing) return;
 
     // Desbloquear audio del browser si hace falta
@@ -305,8 +304,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   }, [isConnected, isProcessing, audioBlocked]);
 
   // ── PTT: stop recording → send to backend ──
-  const stopTalking = useCallback(async (e) => {
-    if (e?.preventDefault) e.preventDefault();
+  const stopTalking = useCallback(async () => {
     if (!isTalking || !mediaRecorderRef.current) return;
 
     setIsTalking(false);
@@ -334,7 +332,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     if (audioBlob.size < 500) {
       console.warn('Audio muy corto, ignorado');
       setStatus('Listo');
-      return; // isProcessing aún no se puso en true, no necesita reset
+      return;
     }
 
     // Convertir a base64 — usar chunks para evitar stack overflow en audios grandes
@@ -351,7 +349,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     setIsProcessing(true);
     setStatus('Procesando...');
 
-    setError(null); // Limpiar errores anteriores antes de cada intento
+    setError(null);
     try {
       const resp = await fetch(`${BACKEND}/api/liveavatar/speak`, {
         method: 'POST',
@@ -371,7 +369,6 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
       const data = await resp.json();
       console.log('✅ Speak response:', data);
 
-      // Agregar al historial
       if (data.transcribed_text) {
         setMessages(prev => [...prev, {
           role: 'user', text: data.transcribed_text, id: Date.now(),
@@ -381,7 +378,6 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         setMessages(prev => [...prev, {
           role: 'assistant', text: data.ai_response, id: Date.now() + 1,
         }]);
-        // Play audio locally — the backend returns MP3 as data URL
         if (data.audio_url) {
           playAudio(data.audio_url);
         }
@@ -390,13 +386,41 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     } catch (err) {
       console.error('Speak error:', err);
       setError(`Error: ${err.message}`);
-      // Auto-limpiar error después de 4 segundos para no bloquear la UI
       setTimeout(() => { if (mountedRef.current) setError(null); }, 4000);
     } finally {
       setIsProcessing(false);
       setStatus('Listo');
     }
   }, [isTalking, playAudio]);
+
+  // ── Toggle PTT para mobile (tap para grabar, tap para enviar) ──
+  const handlePttToggle = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isTalking) {
+      stopTalking();
+    } else {
+      startTalking();
+    }
+  }, [isTalking, startTalking, stopTalking]);
+
+  // ── PTT handlers para desktop (hold) y mobile (tap toggle) ──
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  const pttMouseDown = useCallback((e) => {
+    if (isMobile) return; // mobile usa onClick
+    startTalking();
+  }, [isMobile, startTalking]);
+
+  const pttMouseUp = useCallback((e) => {
+    if (isMobile) return;
+    stopTalking();
+  }, [isMobile, stopTalking]);
+
+  const pttMouseLeave = useCallback((e) => {
+    if (isMobile) return;
+    if (isTalking) stopTalking();
+  }, [isMobile, isTalking, stopTalking]);
 
   // ── Enviar mensaje de texto (modo texto desde MainPage) ──
   const sendMessage = useCallback(async (text) => {
@@ -555,17 +579,22 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
           {!isTalking && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-2 text-center">
               <p className="text-emerald-700 text-sm font-medium">
-                Mantené presionado el botón mientras hablás
+                {isMobile
+                  ? 'Tocá el botón para empezar a hablar'
+                  : 'Mantené presionado el botón mientras hablás'}
               </p>
-              <p className="text-emerald-600 text-xs mt-0.5">Soltá cuando termines tu pregunta</p>
+              <p className="text-emerald-600 text-xs mt-0.5">
+                {isMobile
+                  ? 'Tocá de nuevo cuando termines tu pregunta'
+                  : 'Soltá cuando termines tu pregunta'}
+              </p>
             </div>
           )}
           <button
-            onMouseDown={startTalking}
-            onMouseUp={stopTalking}
-            onMouseLeave={isTalking ? stopTalking : undefined}
-            onTouchStart={startTalking}
-            onTouchEnd={stopTalking}
+            onMouseDown={pttMouseDown}
+            onMouseUp={pttMouseUp}
+            onMouseLeave={pttMouseLeave}
+            onClick={isMobile ? handlePttToggle : undefined}
             className={`
               flex items-center gap-3 px-10 py-5 rounded-full font-bold text-white text-lg
               shadow-xl transition-all duration-150 select-none touch-none
@@ -575,10 +604,14 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             `}
           >
             <Mic className={`w-6 h-6 ${isTalking ? 'animate-pulse' : ''}`} />
-            {isTalking ? 'Soltá para enviar' : 'Presionar para hablar'}
+            {isTalking
+              ? (isMobile ? 'Tocá para enviar' : 'Soltá para enviar')
+              : 'Presionar para hablar'}
           </button>
           {isTalking && (
-            <p className="text-sm font-semibold text-red-500 animate-pulse">Grabando... soltá cuando termines</p>
+            <p className="text-sm font-semibold text-red-500 animate-pulse">
+              {isMobile ? 'Grabando... tocá de nuevo cuando termines' : 'Grabando... soltá cuando termines'}
+            </p>
           )}
         </div>
       )}
