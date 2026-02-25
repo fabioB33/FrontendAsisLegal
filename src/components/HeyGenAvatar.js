@@ -337,10 +337,15 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
       return; // isProcessing aún no se puso en true, no necesita reset
     }
 
-    // Convertir a base64
+    // Convertir a base64 — usar chunks para evitar stack overflow en audios grandes
     const arrayBuffer = await audioBlob.arrayBuffer();
     const uint8       = new Uint8Array(arrayBuffer);
-    const b64         = btoa(String.fromCharCode(...uint8));
+    let b64 = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+      b64 += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+    }
+    b64 = btoa(b64);
 
     console.log(`🎤 Sending audio: ${audioBlob.size} bytes`);
     setIsProcessing(true);
