@@ -307,10 +307,23 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     // Pedir acceso al micrófono
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 16000,
+        },
+      });
     } catch {
       setError('No se pudo acceder al micrófono');
       return;
+    }
+
+    // Silenciar el audio del avatar mientras se graba para evitar retroalimentación
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
     }
 
     audioChunksRef.current = [];
