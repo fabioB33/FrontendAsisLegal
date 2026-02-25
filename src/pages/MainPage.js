@@ -56,7 +56,7 @@ const MainPage = () => {
         <div className="mb-6 animate-fade-in-delayed">
           <div className="inline-flex rounded-full bg-white/80 backdrop-blur-sm p-1 shadow-lg border border-gray-200">
             <button
-              onClick={() => { avatarRef.current?.stop?.(); setChatMode('voice'); }}
+              onClick={async () => { await avatarRef.current?.stop?.(); setChatMode('voice'); }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
                 chatMode === 'voice'
                   ? 'bg-emerald-600 text-white shadow-md'
@@ -66,7 +66,7 @@ const MainPage = () => {
               🎤 Voz
             </button>
             <button
-              onClick={() => { avatarRef.current?.stop?.(); setChatMode('text'); }}
+              onClick={async () => { await avatarRef.current?.stop?.(); setChatMode('text'); }}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
                 chatMode === 'text'
                   ? 'bg-emerald-600 text-white shadow-md'

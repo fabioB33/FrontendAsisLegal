@@ -86,7 +86,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
           const room = new Room({ adaptiveStream: true, dynacast: true });
           roomRef.current = room;
 
-          room.on(RoomEvent.TrackSubscribed, (track) => {
+          const onTrackSubscribed = (track) => {
             if (track.kind === Track.Kind.Video && videoRef.current) {
               track.attach(videoRef.current);
               setVideoReady(true);
@@ -99,19 +99,21 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
               lkAudioElRef.current = el;
               console.log('🔇 Avatar audio muted (using local MP3 instead)');
             }
-          });
-
-          room.on(RoomEvent.TrackUnsubscribed, (track) => {
+          };
+          const onTrackUnsubscribed = (track) => {
             if (track.kind === Track.Kind.Audio) audioTrackRef.current = null;
-          });
-
-          room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+          };
+          const onAudioPlaybackChanged = () => {
             setAudioBlocked(!room.canPlaybackAudio);
-          });
-
-          room.on(RoomEvent.Disconnected, () => {
+          };
+          const onDisconnected = () => {
             setAvatarSpeaking(false);
-          });
+          };
+
+          room.on(RoomEvent.TrackSubscribed, onTrackSubscribed);
+          room.on(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed);
+          room.on(RoomEvent.AudioPlaybackStatusChanged, onAudioPlaybackChanged);
+          room.on(RoomEvent.Disconnected, onDisconnected);
 
           try {
             await room.connect(livekit_url, livekit_token, { autoSubscribe: true });
@@ -160,11 +162,15 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         lkAudioElRef.current.src = '';
         lkAudioElRef.current = null;
       }
-      if (roomRef.current) roomRef.current.disconnect();
-      if (sessionIdRef.current) {
+      if (roomRef.current) {
+        // Remove all listeners before disconnecting to prevent memory leaks
+        roomRef.current.removeAllListeners();
+        roomRef.current.disconnect();
+      }
+      if (sessionIdRef.current && !sessionIdRef.current.startsWith('fallback-')) {
         fetch(`${BACKEND}/api/liveavatar/close-session/${sessionIdRef.current}`, {
           method: 'DELETE',
-        }).catch(() => {});
+        }).catch(err => console.warn('Close session failed:', err));
       }
     };
   }, []);
@@ -331,6 +337,12 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
     if (audioBlob.size < 500) {
       console.warn('Audio muy corto, ignorado');
+      setStatus('Listo');
+      return;
+    }
+    if (audioBlob.size > 5 * 1024 * 1024) {
+      setError('Grabación muy larga. Por favor hacé una pregunta más corta.');
+      setTimeout(() => { if (mountedRef.current) setError(null); }, 4000);
       setStatus('Listo');
       return;
     }

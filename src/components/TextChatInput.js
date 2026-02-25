@@ -109,15 +109,14 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
           }
         }
         
-        setMessage(''); // Clear input
+        if (mountedRef.current) setMessage(''); // Clear input
       }
-      
-      setIsProcessing(false);
-      
+
     } catch (err) {
       console.error('Error:', err);
-      setError(err.message || 'Error al procesar la consulta');
-      setIsProcessing(false);
+      if (mountedRef.current) setError(err.message || 'Error al procesar la consulta');
+    } finally {
+      if (mountedRef.current) setIsProcessing(false);
     }
   };
 
