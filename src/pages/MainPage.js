@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Scale, MessageCircle, Sparkles } from 'lucide-react';
 import HeyGenAvatar from '../components/HeyGenAvatar';
-import TextChatInput from '@/components/TextChatInput';
+import TextChatInput from '../components/TextChatInput';
 
 const MainPage = () => {
   const [chatMode, setChatMode] = useState('voice'); // 'voice' or 'text'

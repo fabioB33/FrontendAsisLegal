@@ -32,6 +32,8 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   const [error, setError]                   = useState(null);
   const [status, setStatus]                 = useState('Iniciando avatar...');
   const [videoReady, setVideoReady]         = useState(false);  // true cuando LiveKit envía video
+  const [audioOnly, setAudioOnly]           = useState(false);  // true cuando LiveKit falló
+  const [isOffline, setIsOffline]           = useState(!navigator.onLine);
   const [messages, setMessages]             = useState([]);
 
   const videoRef         = useRef(null);
@@ -52,6 +54,18 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // ── Online/offline detection ──
+  useEffect(() => {
+    const goOnline  = () => { if (mountedRef.current) setIsOffline(false); };
+    const goOffline = () => { if (mountedRef.current) setIsOffline(true); };
+    window.addEventListener('online',  goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online',  goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   // ── Init: crea sesión LITE y conecta LiveKit para video ──
   useEffect(() => {
@@ -145,6 +159,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         // Si falla la sesión de LiveKit, igual habilitamos la UI para responder con audio
         console.warn('⚠️ LiveKit session failed, continuing in audio-only mode:', err.message);
         sessionIdRef.current = 'fallback-' + Date.now();
+        setAudioOnly(true);
       }
 
       // Siempre conectar la UI — el audio funciona aunque LiveKit falle
@@ -523,6 +538,22 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         <p className="text-sm text-gray-500 mt-0.5">Prados de Paraíso</p>
       </div>
 
+      {/* Banner offline */}
+      {isOffline && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-full">
+          <AlertCircle className="w-4 h-4 text-red-500" />
+          <p className="text-sm text-red-600 font-medium">Sin conexión a internet — revisá tu red</p>
+        </div>
+      )}
+
+      {/* Banner audio-only (LiveKit no disponible) */}
+      {isConnected && audioOnly && !isOffline && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full">
+          <AlertCircle className="w-4 h-4 text-blue-500" />
+          <p className="text-sm text-blue-700">Modo audio — el video del avatar no está disponible</p>
+        </div>
+      )}
+
       {/* PASO 1: Conectando */}
       {!isConnected && !error && (
         <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full border border-gray-200">
@@ -551,11 +582,15 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
       {/* PASO 2: Procesando — Valeria pensando */}
       {isConnected && !audioBlocked && isProcessing && (
         <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 px-5 py-3 bg-blue-50 rounded-full border border-blue-200">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-            <p className="text-sm font-semibold text-blue-700">Valeria está pensando...</p>
+          <div className={`flex items-center gap-2 px-5 py-3 rounded-full border ${isOffline ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+            {isOffline
+              ? <AlertCircle className="w-5 h-5 text-red-500" />
+              : <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
+            <p className={`text-sm font-semibold ${isOffline ? 'text-red-700' : 'text-blue-700'}`}>
+              {isOffline ? 'Sin conexión — reconectá internet' : 'Valeria está pensando...'}
+            </p>
           </div>
-          <p className="text-xs text-gray-400">Por favor esperá la respuesta</p>
+          {!isOffline && <p className="text-xs text-gray-400">Por favor esperá la respuesta</p>}
         </div>
       )}
 
