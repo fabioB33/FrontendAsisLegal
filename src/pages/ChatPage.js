@@ -21,12 +21,19 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        navigate('/');
+        return;
+      }
+      const parsed = JSON.parse(storedUser);
+      if (!parsed || typeof parsed !== 'object') throw new Error('Invalid user data');
+      setUser(parsed);
+    } catch (e) {
+      console.error('Error reading user from localStorage:', e);
       navigate('/');
-      return;
     }
-    setUser(JSON.parse(storedUser));
   }, [navigate]);
 
   useEffect(() => {

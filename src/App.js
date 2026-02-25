@@ -5,16 +5,21 @@ import MainPage from '@/pages/MainPage';
 import { Toaster } from '@/components/ui/sonner';
 
 function App() {
-  const [hasAccess, setHasAccess] = useState(true); // Temporarily true for testing LiveAvatar
-  const [isChecking, setIsChecking] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Check if user already has access
-    const access = localStorage.getItem('prados_access');
-    if (access === 'true') {
-      setHasAccess(true);
+    try {
+      const access = localStorage.getItem('prados_access');
+      if (access === 'true') {
+        setHasAccess(true);
+      }
+    } catch (e) {
+      console.warn('localStorage not available:', e);
+      // Si localStorage falla (navegador privado / bloqueado), denegar acceso
+    } finally {
+      setIsChecking(false);
     }
-    setIsChecking(false);
   }, []);
 
   const handlePasswordCorrect = () => {
