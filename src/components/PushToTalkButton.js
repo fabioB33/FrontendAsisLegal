@@ -88,7 +88,7 @@ const PushToTalkButton = ({ onStateChange }) => {
 
   const sendToElevenLabsAgent = async (audioBlob) => {
     try {
-      const apiUrl = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal.onrender.com';
+      const apiUrl = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal-e5n9.onrender.com';
       
       // Step 1: Transcribe audio
       const formData = new FormData();

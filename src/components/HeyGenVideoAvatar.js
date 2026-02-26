@@ -34,7 +34,7 @@ const HeyGenVideoAvatar = ({ isProcessing, isPlaying, isPaused, onStateChange })
       
       console.log('🎬 Generating video with HeyGen:', text.substring(0, 50));
       
-      const apiUrl = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal.onrender.com';
+      const apiUrl = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal-e5n9.onrender.com';
       const response = await fetch(`${apiUrl}/api/heygen/generate-video`, {
         method: 'POST',
         headers: {

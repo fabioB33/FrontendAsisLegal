@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 
-const BACKEND = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal.onrender.com';
+const BACKEND = process.env.REACT_APP_BACKEND_URL || 'https://backendasislegal-e5n9.onrender.com';
 
 const HeyGenAvatar = forwardRef((_props, ref) => {
   const [isConnected, setIsConnected]       = useState(false);
