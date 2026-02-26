@@ -363,8 +363,10 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     try { mr.stream?.getTracks().forEach(t => t.stop()); } catch {};
 
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-    if (audioBlob.size < 500) {
+    if (audioBlob.size < 3000) {
       console.warn('Audio muy corto, ignorado');
+      setError('Grabación muy corta. Mantené presionado y hablá al menos 1 segundo.');
+      setTimeout(() => { if (mountedRef.current) setError(null); }, 3000);
       setStatus('Listo');
       return;
     }
