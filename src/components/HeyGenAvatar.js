@@ -635,10 +635,10 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         </div>
       )}
 
-      {/* PASO 2: PTT habilitado — solo aparece cuando audio activo y avatar libre */}
-      {isConnected && !audioBlocked && !avatarSpeaking && !isProcessing && (
+      {/* PASO 2: PTT — siempre visible cuando está conectado */}
+      {isConnected && !audioBlocked && (
         <div className="flex flex-col items-center gap-3 w-full">
-          {!isTalking && (
+          {!isTalking && !avatarSpeaking && !isProcessing && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-2 text-center">
               <p className="text-emerald-700 text-sm font-medium">
                 {isMobile
@@ -657,18 +657,25 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
             onMouseUp={pttMouseUp}
             onMouseLeave={pttMouseLeave}
             onClick={isMobile ? handlePttToggle : undefined}
+            disabled={avatarSpeaking || isProcessing}
             className={`
               flex items-center gap-3 px-10 py-5 rounded-full font-bold text-white text-lg
               shadow-xl transition-all duration-150 select-none touch-none
               ${isTalking
                 ? 'bg-red-500 scale-95 shadow-red-400/60 ring-4 ring-red-300'
-                : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-emerald-500/50'}
+                : avatarSpeaking || isProcessing
+                  ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                  : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-emerald-500/50'}
             `}
           >
             <Mic className={`w-6 h-6 ${isTalking ? 'animate-pulse' : ''}`} />
             {isTalking
               ? (isMobile ? 'Tocá para enviar' : 'Soltá para enviar')
-              : 'Presionar para hablar'}
+              : avatarSpeaking
+                ? 'Valeria está hablando...'
+                : isProcessing
+                  ? 'Procesando...'
+                  : 'Presionar para hablar'}
           </button>
           {isTalking && (
             <p className="text-sm font-semibold text-red-500 animate-pulse">
