@@ -435,7 +435,7 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
     }
   }, [isTalking, playAudio]);
 
-  // ── Toggle PTT para mobile (tap para grabar, tap para enviar) ──
+  // ── PTT: tap para iniciar, tap para enviar (universal en todos los dispositivos) ──
   const handlePttToggle = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -445,24 +445,6 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
       startTalking();
     }
   }, [isTalking, startTalking, stopTalking]);
-
-  // ── PTT handlers para desktop (hold) y mobile (tap toggle) ──
-  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
-  const pttMouseDown = useCallback((e) => {
-    if (isMobile) return; // mobile usa onClick
-    startTalking();
-  }, [isMobile, startTalking]);
-
-  const pttMouseUp = useCallback((e) => {
-    if (isMobile) return;
-    stopTalking();
-  }, [isMobile, stopTalking]);
-
-  const pttMouseLeave = useCallback((e) => {
-    if (isMobile) return;
-    if (isTalking) stopTalking();
-  }, [isMobile, isTalking, stopTalking]);
 
   // ── Enviar mensaje de texto (modo texto desde MainPage) ──
   const sendMessage = useCallback(async (text) => {
@@ -635,32 +617,21 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
         </div>
       )}
 
-      {/* PASO 2: PTT — siempre visible cuando está conectado */}
+      {/* PASO 2: PTT — tap para iniciar, tap para enviar (todos los dispositivos) */}
       {isConnected && !audioBlocked && (
         <div className="flex flex-col items-center gap-3 w-full">
           {!isTalking && !avatarSpeaking && !isProcessing && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-2 text-center">
-              <p className="text-emerald-700 text-sm font-medium">
-                {isMobile
-                  ? 'Tocá el botón para empezar a hablar'
-                  : 'Mantené presionado el botón mientras hablás'}
-              </p>
-              <p className="text-emerald-600 text-xs mt-0.5">
-                {isMobile
-                  ? 'Tocá de nuevo cuando termines tu pregunta'
-                  : 'Soltá cuando termines tu pregunta'}
-              </p>
+              <p className="text-emerald-700 text-sm font-medium">Tocá el botón para empezar a hablar</p>
+              <p className="text-emerald-600 text-xs mt-0.5">Tocá de nuevo cuando termines tu pregunta</p>
             </div>
           )}
           <button
-            onMouseDown={pttMouseDown}
-            onMouseUp={pttMouseUp}
-            onMouseLeave={pttMouseLeave}
-            onClick={isMobile ? handlePttToggle : undefined}
+            onClick={handlePttToggle}
             disabled={avatarSpeaking || isProcessing}
             className={`
               flex items-center gap-3 px-10 py-5 rounded-full font-bold text-white text-lg
-              shadow-xl transition-all duration-150 select-none touch-none
+              shadow-xl transition-all duration-150 select-none
               ${isTalking
                 ? 'bg-red-500 scale-95 shadow-red-400/60 ring-4 ring-red-300'
                 : avatarSpeaking || isProcessing
@@ -670,16 +641,16 @@ const HeyGenAvatar = forwardRef((_props, ref) => {
           >
             <Mic className={`w-6 h-6 ${isTalking ? 'animate-pulse' : ''}`} />
             {isTalking
-              ? (isMobile ? 'Tocá para enviar' : 'Soltá para enviar')
+              ? '🔴 Tocá para enviar'
               : avatarSpeaking
                 ? 'Valeria está hablando...'
                 : isProcessing
                   ? 'Procesando...'
-                  : 'Presionar para hablar'}
+                  : '🎤 Tocá para hablar'}
           </button>
           {isTalking && (
             <p className="text-sm font-semibold text-red-500 animate-pulse">
-              {isMobile ? 'Grabando... tocá de nuevo cuando termines' : 'Grabando... soltá cuando termines'}
+              Grabando... tocá de nuevo cuando termines
             </p>
           )}
         </div>
