@@ -77,9 +77,9 @@ const TextChatInput = ({ onStateChange, avatarRef }) => {
         }
 
         const data = await res.json();
-        
+
         // Display response
-        setResponse(data.response);
+        setResponse(data.response || '');
         
         // Generate audio with ElevenLabs
         console.log('🔊 Generating audio for response...');
